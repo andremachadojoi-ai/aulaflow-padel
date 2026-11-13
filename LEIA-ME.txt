@@ -1,0 +1,30 @@
+AulaFlow Padel — versão com sincronização Supabase
+
+PUBLICAÇÃO
+1. Extraia todos os arquivos desta pasta.
+2. No repositório GitHub aulaflow-padel, use Add file > Upload files.
+3. Envie index.html, sw.js, manifest.webmanifest e os três ícones para a raiz.
+4. Confirme Commit changes. O GitHub Pages já deve estar configurado.
+
+CONFIGURAÇÃO OBRIGATÓRIA NO SUPABASE
+1. Authentication > URL Configuration.
+2. Site URL: https://andremachadojoi-ai.github.io/aulaflow-padel/
+3. Adicione esse mesmo endereço em Redirect URLs.
+4. Authentication > Providers > Email: mantenha Email habilitado.
+
+PRIMEIRO ACESSO
+1. Abra o site publicado e toque em Conta / Sincronizar.
+2. Informe seu e-mail e abra o link recebido no mesmo dispositivo.
+3. No primeiro dispositivo com dados, se ainda não houver linha na nuvem, o app envia os dados locais.
+4. No segundo dispositivo, entre com o mesmo e-mail; se estiver vazio, ele baixa os dados da nuvem.
+5. Se ambos já tiverem dados, o app perguntará qual versão manter. Faça backup antes.
+
+SEGURANÇA
+- A chave sb_publishable_ está no frontend por projeto; ela não substitui RLS.
+- Nunca inclua sb_secret_ ou service_role no site.
+- A tabela public.aulaflow_state deve ter RLS habilitado e política auth.uid() = user_id, como no SQL anterior.
+- A sincronização guarda o estado completo. Se dois dispositivos editarem simultaneamente, o app detecta conflito e pede escolha, evitando sobrescrita silenciosa.
+- Offline: as alterações ficam no armazenamento local até voltar a conexão.
+
+IMPORTANTE
+Faça um backup JSON antes de substituir os arquivos publicados.
