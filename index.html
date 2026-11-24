@@ -162,10 +162,10 @@ function saveTx(){let f=$('#tf');if(!f.reportValidity())return;let x=Object.from
 function markPaid(tid){let t=db.tx.find(x=>x.id===tid);if(t){t.status='Pago';t.paidAt=iso(new Date());save()}}
 function delTx(tid){if(confirm('Excluir lançamento?')){db.tx=db.tx.filter(x=>x.id!==tid);save()}}
 
-// Inicializa a interface após declarar todos os módulos.
+// Renderização inicial do aplicativo.
 render();
 
-// Registra o service worker para instalação como aplicativo.
+// Registro do aplicativo instalável.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.error));
 }
