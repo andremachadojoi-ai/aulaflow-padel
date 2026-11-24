@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aulaflow-padel-clean-v8';
+const CACHE_NAME = 'aulaflow-padel-clean-v9';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', event => {
