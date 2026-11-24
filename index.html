@@ -66,7 +66,48 @@ function save(){localStorage.setItem(K,JSON.stringify(db));queueAutoBackup();if(
 function nav(){let a=['inicio','agenda','alunosaulas','alunos','financeiro','relatorios','backup'];$('#nav').innerHTML=a.map((x,i)=>`<button class="nav ${tab===x?'active':''}" onclick="setTab('${x}')">${['Visão geral','Agenda','Aulas por aluno','Alunos','Financeiro','Relatórios','Backup'][i]}</button>`).join('')}
 function render(){nav();({inicio,agenda,alunosaulas,alunos,financeiro,relatorios,backup}[tab])()}
 function item(l){let names=l.students.map(i=>db.students.find(s=>s.id===i)?.name||'').join(', ');let pending=['Agendada','Remarcada'].includes(l.status);return `<div class="item"><div><strong>${esc(l.time)} • ${esc(l.format)} — ${esc(names||'Sem aluno')}</strong><small>${br(l.date)} • ${l.duration} • ${esc(l.status)}</small></div><div class="actions">${pending?`<button class="btn primary" onclick="confirmLesson('${l.id}')">Confirmar aula</button>`:''}<button class="btn" onclick="lessonForm('${l.id}')">Editar</button></div></div>`}
-function inicio(){let m=iso(new Date()).slice(0,7),inc=db.tx.filter(x=>x.type==='Receita'&&x.status==='Pago'&&x.date.startsWith(m)).reduce((a,x)=>a+x.amount,0),out=db.tx.filter(x=>x.type==='Despesa'&&x.date.startsWith(m)).reduce((a,x)=>a+x.amount,0),today=db.lessons.filter(x=>x.date===iso(new Date())).sort((a,b)=>a.time.localeCompare(b.time));$('#view').innerHTML=`<h2>Olá! 👋</h2><p class="sub">Resumo da sua operação de Padel.</p><div class="grid"><div class="card metric"><small>Recebido no mês</small><strong>${cash(inc)}</strong></div><div class="card metric"><small>Despesas no mês</small><strong>${cash(out)}</strong></div><div class="card metric"><small>Resultado</small><strong class="green">${cash(inc-out)}</strong></div><div class="card metric"><small>Alunos cadastrados</small><strong>${db.students.length}</strong></div></div><div class="card"><div class="row"><h3>Aulas de hoje</h3><button class="btn primary" onclick="lessonForm()">+ Nova aula</button></div><div class="list">${today.map(item).join('')||'<div class="empty">Nenhuma aula cadastrada para hoje.</div>'}</div></div><div class="card"><h3>Ações rápidas</h3><div class="actions"><button class="btn" onclick="studentForm()">+ Aluno</button><button class="btn" onclick="txForm()">+ Lançamento financeiro</button></div></div>`}
+function inicio(){
+ const today=iso(new Date()), now=new Date();
+ const todayLessons=db.lessons.filter(l=>l.date===today).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+ const active=todayLessons.filter(l=>l.status!=='Cancelada');
+ const done=todayLessons.filter(l=>l.status==='Concluída').length;
+ const pendingLessons=todayLessons.filter(l=>['Agendada','Remarcada'].includes(l.status));
+ const absences=todayLessons.filter(l=>['Falta com aviso','Falta sem aviso'].includes(l.status)).length;
+ const canceled=todayLessons.filter(l=>l.status==='Cancelada').length;
+ const todayReceived=db.tx.filter(t=>t.type==='Receita'&&t.status==='Pago'&&(t.paidAt||t.date)===today).reduce((a,t)=>a+(+t.amount||0),0);
+ const todayToReceive=db.tx.filter(t=>t.type==='Receita'&&t.status!=='Pago'&&(t.dueDate||t.date)===today).reduce((a,t)=>a+(+t.amount||0),0);
+ const todayExpenses=db.tx.filter(t=>t.type==='Despesa'&&t.date===today).reduce((a,t)=>a+(+t.amount||0),0);
+ const lowCredits=db.students.filter(st=>st.pack!=='Avulso').map(st=>{
+  const used=db.lessons.filter(l=>['Concluída','Falta sem aviso'].includes(l.status)&&l.packageUse&&(l.students||[]).includes(st.id)).length;
+  return {...st,remaining:Math.max(0,(+st.credits||0)-used)};
+ }).filter(st=>st.remaining===1);
+ const debtors=db.students.map(st=>({...st,debt:db.tx.filter(t=>t.type==='Receita'&&t.studentId===st.id&&t.status!=='Pago').reduce((a,t)=>a+(+t.amount||0),0)})).filter(st=>st.debt>0);
+ const weekday=now.toLocaleDateString('pt-BR',{weekday:'long'});
+ const dateLabel=now.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+ const statusLabel=active.length?'<span class="good">Agenda em andamento</span>':'<span class="muted">Sem aulas programadas</span>';
+ $('#view').innerHTML=`<div class="row"><div><h2>Seu dia no Padel 👋</h2><p class="sub">${weekday}, ${dateLabel} • ${statusLabel}</p></div><button class="btn primary" onclick="lessonForm()">+ Nova aula</button></div>
+ <div class="grid">
+  <div class="card metric"><small>Aulas de hoje</small><strong>${active.length}</strong><small>${done} concluída(s) • ${pendingLessons.length} pendente(s)</small></div>
+  <div class="card metric"><small>Recebido hoje</small><strong class="green">${cash(todayReceived)}</strong><small>Pagamentos registrados para hoje</small></div>
+  <div class="card metric"><small>A receber hoje</small><strong>${cash(todayToReceive)}</strong><small>Receitas com vencimento hoje</small></div>
+  <div class="card metric"><small>Despesas de hoje</small><strong>${cash(todayExpenses)}</strong><small>${absences} falta(s) • ${canceled} cancelada(s)</small></div>
+ </div>
+ <div class="card"><div class="row"><div><h3>Agenda de hoje</h3><p class="sub">${todayLessons.length} horário(s) no total</p></div><button class="btn" onclick="setTab('agenda')">Abrir agenda</button></div><div class="list">${todayLessons.map(item).join('')||'<div class="empty">Nenhuma aula marcada para hoje. Aproveite para organizar sua agenda.</div>'}</div></div>
+ <div class="grid">
+  <div class="card"><h3>Resumo das aulas</h3><div class="list">
+   <div class="item"><span>Concluídas</span><strong class="good">${done}</strong></div>
+   <div class="item"><span>Aguardando confirmação</span><strong class="warn">${pendingLessons.length}</strong></div>
+   <div class="item"><span>Faltas</span><strong>${absences}</strong></div>
+   <div class="item"><span>Canceladas</span><strong>${canceled}</strong></div>
+  </div></div>
+  <div class="card"><h3>Alertas de alunos</h3><div class="list">
+   ${lowCredits.map(st=>`<div class="item"><div><strong>${esc(st.name)}</strong><small class="warn">Resta 1 crédito</small></div><button class="btn" onclick="studentHistory('${st.id}')">Ver aluno</button></div>`).join('')}
+   ${debtors.slice(0,4).map(st=>`<div class="item"><div><strong>${esc(st.name)}</strong><small class="bad">Pendente: ${cash(st.debt)}</small></div><button class="btn" onclick="studentHistory('${st.id}')">Ver aluno</button></div>`).join('')}
+   ${!lowCredits.length&&!debtors.length?'<div class="empty">Nenhum alerta de crédito ou recebimento.</div>':''}
+  </div></div>
+ </div>
+ <div class="card"><h3>Ações rápidas</h3><div class="actions"><button class="btn" onclick="studentForm()">+ Cadastrar aluno</button><button class="btn" onclick="txForm()">+ Lançamento financeiro</button><button class="btn" onclick="setTab('alunosaulas')">Consultar aulas por aluno</button></div></div>`;
+}
 function agenda(){let st=new Date();st.setDate(st.getDate()-((st.getDay()+6)%7)+offset*7);let ds=Array.from({length:7},(_,i)=>{let d=new Date(st);d.setDate(st.getDate()+i);return d});$('#view').innerHTML=`<h2>Agenda semanal</h2><p class="sub">06h às 18h • aulas de 1h ou 1h30.</p><div class="toolbar"><button class="btn" onclick="offset--;render()">‹ Semana</button><button class="btn" onclick="offset=0;render()">Hoje</button><button class="btn" onclick="offset++;render()">Próxima ›</button><button class="btn primary" onclick="lessonForm()">+ Nova aula</button></div><div class="week">${ds.map(d=>{let date=iso(d),ls=db.lessons.filter(x=>x.date===date&&x.status!=='Cancelada').sort((a,b)=>a.time.localeCompare(b.time));return `<div class="day"><div class="dayhead">${d.toLocaleDateString('pt-BR',{weekday:'short'})} ${d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</div>${ls.map(l=>`<div class="lesson"><b>${l.time} · ${l.duration}</b>${esc(l.students.map(i=>db.students.find(s=>s.id===i)?.name||'').join(', '))}<br>${esc(l.status)}<div class="actions" style="margin:7px 0 0">${['Agendada','Remarcada'].includes(l.status)?`<button class="btn primary" style="padding:6px 8px;font-size:10px" onclick="confirmLesson('${l.id}')">Confirmar</button>`:''}<button class="btn" style="padding:6px 8px;font-size:10px" onclick="lessonForm('${l.id}')">Editar</button></div></div>`).join('')||'<small>Sem aulas</small>'}</div>`}).join('')}</div><div class="card"><h3>Aulas da semana</h3><div class="list">${db.lessons.filter(x=>x.date>=iso(st)&&x.date<=iso(ds[6])).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).map(item).join('')||'<div class="empty">Nenhuma aula nesta semana.</div>'}</div></div>`}
 function alunosaulas(){
  const selected=$('#filterStudent')?.value||'';
