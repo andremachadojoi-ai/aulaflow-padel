@@ -161,4 +161,12 @@ function updateTxCategories(){const f=$('#txCategory');if(f)f.innerHTML='<option
 function saveTx(){let f=$('#tf');if(!f.reportValidity())return;let x=Object.fromEntries(new FormData(f));x.id=id();x.amount=+x.amount;if(!x.dueDate)delete x.dueDate;if(x.type==='Receita'&&x.status==='Pago')x.paidAt=x.date;db.tx.push(x);closeM();save()}
 function markPaid(tid){let t=db.tx.find(x=>x.id===tid);if(t){t.status='Pago';t.paidAt=iso(new Date());save()}}
 function delTx(tid){if(confirm('Excluir lançamento?')){db.tx=db.tx.filter(x=>x.id!==tid);save()}}
+
+// Inicializa a interface após declarar todos os módulos.
+render();
+
+// Registra o service worker para instalação como aplicativo.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.error));
+}
 >
